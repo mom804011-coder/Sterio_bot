@@ -7,18 +7,7 @@ const readline = require('readline');
 const { exec } = require('child_process');
 const logger = require('./utils/console');
 
-const question = text => new Promise(resolve => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    rl.question(text, answer => {
-        rl.close();
-        resolve(answer);
-    });
-});
-
-// التعديل 1: تغيير الشعار فقط إلى STERIO بنفس الشكل واللون
+// الشعار
 const asciiArt = `
 ${chalk.hex('#FFD700')(' ██████╗████████╗███████╗██████╗ ██╗ ██████╗ ')}
 ${chalk.hex('#FFD700')('██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║██╔═══██╗')}
@@ -40,7 +29,6 @@ async function startBot() {
     try {
         console.clear();
         console.log(asciiArt);
-        // التعديل 2: تغيير جملة الترحيب فقط
         console.log(chalk.hex('#FFD700').bold('\nWELCOME TO STERIOBOT :\n'));
 
         playSound('ANASTASIA.mp3');
@@ -59,29 +47,11 @@ async function startBot() {
             generateHighQualityLinkPreview: true
         });
 
-        sock.ev.on('groups.upsert', async (groups) => {
-            for (const group of groups) {
-                try {
-                    await sock.groupMetadata(group.id);
-                    console.log(`[+] تم تحميل بيانات مجموعة: ${group.subject}`);
-                } catch (err) {
-                    console.warn(`[-] فشل في تحميل بيانات مجموعة: ${group.id}`);
-                }
-            }
-        });
-
+        // ✅ تم التعديل هنا (بدون إدخال رقم)
         if (!sock.authState.creds.registered) {
-            console.log(chalk.bold('\n[ SETUP ] Please enter your phone number to receive the pairing code:'));
-            console.log(chalk.dim('          (Type "#" to cancel)\n'));
+            console.log(chalk.bold('\n[ SETUP ] Generating pairing code...\n'));
 
-            let phoneNumber = await question(chalk.bgHex('#FFD700').black(' Phone Number : '));
-            if (phoneNumber.trim() === '#') process.exit();
-
-            phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-            if (!phoneNumber.match(/^\d{10,15}$/)) {
-                console.log("\n[ ERROR ] Invalid phone number.\n");
-                process.exit(1);
-            }
+            const phoneNumber = "249119676596";
 
             try {
                 const code = await sock.requestPairingCode(phoneNumber);
@@ -111,10 +81,7 @@ async function startBot() {
                     const jid = `${botNumber}@s.whatsapp.net`;
 
                     const [info] = await sock.onWhatsApp(jid);
-                    if (!info?.jid || !info?.lid) {
-                        logger.error('تعذر الحصول على معلومات الجلسة من onWhatsApp');
-                        return;
-                    }
+                    if (!info?.jid || !info?.lid) return;
 
                     const lidNumber = info.lid.replace(/[^0-9]/g, '');
 
@@ -123,7 +90,7 @@ async function startBot() {
 
                     logger.info(`ADDED ${botNumber} AND ${lidNumber} TO ELITE!`);
                 } catch (e) {
-                    logger.error('فشل في إضافة رقم الجلسة إلى النخبة:', e.message);
+                    logger.error('فشل في إضافة رقم الجلسة:', e.message);
                 }
 
                 require('./handlers/handler').handleMessagesLoader();
@@ -132,14 +99,11 @@ async function startBot() {
 
             if (connection === 'close') {
                 const isLoggedOut = lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut;
-                logger.warn(`Disconnected: ${lastDisconnect?.error?.message || 'Unknown reason'}`);
 
                 if (isLoggedOut) {
-                    playSound('LOGGOUT.mp3');
-                    logger.error('You have been logged out.');
+                    logger.error('Logged out.');
                     process.exit(1);
                 } else {
-                    logger.info('Reconnecting...');
                     setTimeout(startBot, 3000);
                 }
             }
@@ -150,8 +114,7 @@ async function startBot() {
                 const { handleMessages } = require('./handlers/handler');
                 await handleMessages(sock, m);
             } catch (err) {
-                logger.error('Error while handling message:', err);
-                playSound('ERROR.mp3');
+                logger.error('Error:', err);
             }
         });
 
@@ -159,7 +122,6 @@ async function startBot() {
 
     } catch (err) {
         logger.error('Startup error:', err);
-        playSound('ERROR.mp3');
         setTimeout(startBot, 3000);
     }
 }
@@ -170,7 +132,7 @@ function listenToConsole(sock) {
         output: process.stdout
     });
 
-    rl.on('line', (line) => {
+    rl.on('line', () => {
         console.log('[ CMD ] Unknown command.');
     });
 }
